@@ -46,6 +46,60 @@ See: `docs/diagrams/architecture.md`
 - `infra/` Terraform infrastructure
 - `docs/` Architecture notes, ADRs, diagrams
 
+## Running Locally
+
+### Prerequisites
+
+- Java 21 (JDK)
+- Git
+- macOS or Linux (Windows via WSL also works)
+
+#### Check for Java
+
+```bash
+java --version
+
+# Expected Output
+openjdk 21 ...
+```
+
+#### Start the backend service
+
+From the repository root:
+
+```bash
+cd backend-service
+./gradlew bootRun
+```
+
+#### Verify the service
+
+Health check endpoint:
+
+```bash
+curl http://localhost:8080/actuator/health
+
+# Expected response:
+{"status":"UP"}
+```
+
+Ping endpoint:
+
+```bash
+curl http://localhost:8080/ping
+
+# Expected response:
+pong
+```
+
+#### Notes
+
+- The service is intentionally stateless.
+
+- No AWS resources are required for local execution at this stage.
+
+- EMR, S3, and DynamoDB integration will be added in later milestones.
+
 ## Success criteria (MVP)
 
 - Submit a job end-to-end and see it complete successfully

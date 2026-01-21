@@ -14,3 +14,10 @@ management:
     health:
       probes:
         enabled: true
+        
+logging:
+  level:
+    root: INFO
+    com.michael.backendservice: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} %-5level [%thread] %logger{36} - %msg%n"

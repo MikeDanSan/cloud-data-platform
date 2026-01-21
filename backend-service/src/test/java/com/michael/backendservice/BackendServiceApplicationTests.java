@@ -1,4 +1,4 @@
-package com.michael.backend_service;
+package com.michael.backendservice;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

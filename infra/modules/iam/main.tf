@@ -1,30 +1,35 @@
 locals {
-  role_name   = "${var.project_name}-${var.environment}-backend-role"
-  policy_name = "${var.project_name}-${var.environment}-backend-policy"
+  task_role_name   = "${var.project_name}-${var.environment}-backend-task-role"
+  exec_role_name   = "${var.project_name}-${var.environment}-backend-exec-role"
+  task_policy_name = "${var.project_name}-${var.environment}-backend-task-policy"
 }
 
-# Trust policy is compute-specific. For now we use EC2 as a placeholder.
-# Later, if you deploy on ECS tasks, you'll swap to ecs-tasks.amazonaws.com.
-data "aws_iam_policy_document" "assume_role" {
+data "aws_iam_policy_document" "assume_ecs_tasks" {
   statement {
-    effect = "Allow"
+    effect  = "Allow"
     actions = ["sts:AssumeRole"]
 
     principals {
       type        = "Service"
-      identifiers = ["ec2.amazonaws.com"]
+      identifiers = ["ecs-tasks.amazonaws.com"]
     }
   }
 }
 
-resource "aws_iam_role" "backend" {
-  name               = local.role_name
-  assume_role_policy = data.aws_iam_policy_document.assume_role.json
+resource "aws_iam_role" "task" {
+  name               = local.task_role_name
+  assume_role_policy = data.aws_iam_policy_document.assume_ecs_tasks.json
   tags               = var.tags
 }
 
-data "aws_iam_policy_document" "backend_policy" {
-  # S3 access (raw + processed)
+resource "aws_iam_role" "execution" {
+  name               = local.exec_role_name
+  assume_role_policy = data.aws_iam_policy_document.assume_ecs_tasks.json
+  tags               = var.tags
+}
+
+data "aws_iam_policy_document" "task_policy" {
+  # S3 bucket list permissions
   statement {
     effect = "Allow"
     actions = [
@@ -36,6 +41,7 @@ data "aws_iam_policy_document" "backend_policy" {
     ]
   }
 
+  # S3 object permissions
   statement {
     effect = "Allow"
     actions = [
@@ -49,7 +55,7 @@ data "aws_iam_policy_document" "backend_policy" {
     ]
   }
 
-  # DynamoDB access (jobs table)
+  # DynamoDB permissions
   statement {
     effect = "Allow"
     actions = [
@@ -64,13 +70,18 @@ data "aws_iam_policy_document" "backend_policy" {
   }
 }
 
-resource "aws_iam_policy" "backend" {
-  name   = local.policy_name
-  policy = data.aws_iam_policy_document.backend_policy.json
+resource "aws_iam_policy" "task" {
+  name   = local.task_policy_name
+  policy = data.aws_iam_policy_document.task_policy.json
   tags   = var.tags
 }
 
-resource "aws_iam_role_policy_attachment" "backend_attach" {
-  role       = aws_iam_role.backend.name
-  policy_arn = aws_iam_policy.backend.arn
+resource "aws_iam_role_policy_attachment" "task_attach" {
+  role       = aws_iam_role.task.name
+  policy_arn = aws_iam_policy.task.arn
+}
+
+resource "aws_iam_role_policy_attachment" "execution_attach" {
+  role       = aws_iam_role.execution.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }

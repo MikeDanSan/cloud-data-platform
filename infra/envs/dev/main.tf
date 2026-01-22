@@ -29,3 +29,10 @@ module "iam" {
   processed_bucket_arn = module.s3.processed_bucket_arn
   jobs_table_arn       = module.dynamodb.jobs_table_arn
 }
+
+module "ecr" {
+  source       = "../../modules/ecr"
+  project_name = var.project_name
+  environment  = var.environment
+  tags         = local.tags
+}

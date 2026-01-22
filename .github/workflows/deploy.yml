@@ -29,21 +29,57 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 2
+      
+      - name: Detect deploy-relevant changes
+        id: changes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Ensure we have at least one parent commit to diff against
+          git fetch --no-tags --prune --depth=2 origin main || true
+
+          if git rev-parse HEAD~1 >/dev/null 2>&1; then
+            CHANGED="$(git diff --name-only HEAD~1 HEAD)"
+          else
+            # Fallback (first commit / shallow history edge case)
+            CHANGED="$(git ls-files)"
+          fi
+
+          echo "Changed files:"
+          echo "$CHANGED"
+
+          if echo "$CHANGED" | grep -Eq '^(backend-service/|ecs/|\.github/workflows/deploy\.yml)'; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip deploy (no relevant changes)
+        if: steps.changes.outputs.deploy != 'true'
+        run: |
+          echo "No changes in backend-service/, ecs/, or deploy.yml. Skipping deploy."
+
 
       - name: Configure AWS credentials (OIDC)
+        if: steps.changes.outputs.deploy == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::615340784692:role/cloud-data-platform-dev-github-deploy-role
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
+        if: steps.changes.outputs.deploy == 'true'
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Set up Docker Buildx
+        if: steps.changes.outputs.deploy == 'true'
         uses: docker/setup-buildx-action@v3
 
       - name: Generate git.properties for actuator info
+        if: steps.changes.outputs.deploy == 'true'
         run: |
           mkdir -p backend-service/src/main/resources
           SHA="${{ github.event.workflow_run.head_sha }}"
@@ -56,6 +92,7 @@ jobs:
           EOF
 
       - name: Build and push image (multi-arch)
+        if: steps.changes.outputs.deploy == 'true'
         uses: docker/build-push-action@v6
         with:
           context: ./backend-service
@@ -69,6 +106,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Render task definition (swap image)
+        if: steps.changes.outputs.deploy == 'true'
         id: render-task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
@@ -77,6 +115,7 @@ jobs:
           image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.event.workflow_run.head_sha }}
 
       - name: Deploy to ECS
+        if: steps.changes.outputs.deploy == 'true'
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
           task-definition: ${{ steps.render-task-def.outputs.task-definition }}

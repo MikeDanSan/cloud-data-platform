@@ -26,3 +26,11 @@ output "backend_execution_role_arn" {
 output "ecr_repository_url" {
   value = module.ecr.repository_url
 }
+
+output "alb_dns_name" {
+  value = module.ecs_backend.alb_dns_name
+}
+
+output "github_deploy_role_arn" {
+  value = module.github_oidc.role_arn
+}

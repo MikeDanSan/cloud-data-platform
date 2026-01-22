@@ -1,0 +1,31 @@
+{
+  "family": "cloud-data-platform-dev-backend-service",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::615340784692:role/cloud-data-platform-dev-backend-exec-role",
+  "taskRoleArn": "arn:aws:iam::615340784692:role/cloud-data-platform-dev-backend-task-role",
+  "containerDefinitions": [
+    {
+      "name": "backend-service",
+      "image": "615340784692.dkr.ecr.us-east-1.amazonaws.com/cloud-data-platform-dev-backend-service:REPLACE_WITH_TAG",
+      "essential": true,
+      "portMappings": [
+        { "containerPort": 8080, "hostPort": 8080, "protocol": "tcp" }
+      ],
+      "environment": [
+        { "name": "AWS_REGION", "value": "us-east-1" },
+        { "name": "SPRING_PROFILES_ACTIVE", "value": "dev" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/cloud-data-platform-dev-backend-service",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}

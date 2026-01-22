@@ -1,12 +1,9 @@
 name: Deploy (ECS)
 
 on:
-  push:
-    branches: ["main"]
-    paths:
-      - "backend-service/**"
-      - "ecs/**"
-      - ".github/workflows/deploy.yml"
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
 
 permissions:
   id-token: write
@@ -23,11 +20,15 @@ env:
 
 jobs:
   deploy:
+    name: Deploy to ECS (gated by CI)
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout (exact commit that CI tested)
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -45,13 +46,14 @@ jobs:
       - name: Generate git.properties for actuator info
         run: |
           mkdir -p backend-service/src/main/resources
+          SHA="${{ github.event.workflow_run.head_sha }}"
+          BRANCH="${{ github.event.workflow_run.head_branch }}"
           cat > backend-service/src/main/resources/git.properties <<EOF
-          git.branch=${GITHUB_REF_NAME}
-          git.commit.id=${GITHUB_SHA}
+          git.branch=${BRANCH}
+          git.commit.id=${SHA}
           git.commit.time=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          git.commit.id.abbrev=${GITHUB_SHA:0:7}
+          git.commit.id.abbrev=${SHA:0:7}
           EOF
-
 
       - name: Build and push image (multi-arch)
         uses: docker/build-push-action@v6
@@ -61,7 +63,7 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.event.workflow_run.head_sha }}
             ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -72,7 +74,7 @@ jobs:
         with:
           task-definition: ${{ env.TASK_DEFINITION }}
           container-name: ${{ env.CONTAINER_NAME }}
-          image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+          image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.event.workflow_run.head_sha }}
 
       - name: Deploy to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2

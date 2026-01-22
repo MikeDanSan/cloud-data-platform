@@ -13,3 +13,6 @@ build/
 
 # OS
 .DS_Store
+
+# Git properties
+src/main/resources/git.properties

@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend-service:
+    name: Build & Test (backend-service)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: backend-service
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Ensure Gradle wrapper is executable
+        run: chmod +x ./gradlew
+
+      - name: Build (tests included)
+        run: ./gradlew clean build
+
+      - name: Upload boot jar artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-service-jar
+          path: backend-service/build/libs/*.jar

@@ -15,3 +15,12 @@ variable "environment" {
   type        = string
   default     = "dev"
 }
+
+variable "alert_email" {
+  type = string
+}
+
+variable "monthly_budget_usd" {
+  type    = number
+  default = 25
+}

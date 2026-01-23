@@ -88,3 +88,13 @@ module "waf" {
   waf_mode   = "COUNT"
   rate_limit = 2000
 }
+
+module "budget" {
+  source       = "../../modules/budget"
+  project_name = var.project_name
+  environment  = var.environment
+  tags         = local.tags
+
+  alert_email        = var.alert_email
+  monthly_budget_usd = var.monthly_budget_usd
+}

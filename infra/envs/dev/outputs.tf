@@ -38,3 +38,7 @@ output "github_deploy_role_arn" {
 output "waf_web_acl_name" {
   value = module.waf.web_acl_name
 }
+
+output "budget_name" {
+  value = module.budget.budget_name
+}

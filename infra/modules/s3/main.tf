@@ -59,3 +59,53 @@ resource "aws_s3_bucket_public_access_block" "processed" {
   ignore_public_acls      = true
   restrict_public_buckets = true
 }
+
+resource "aws_s3_bucket_lifecycle_configuration" "raw" {
+  bucket = aws_s3_bucket.raw.id
+
+  rule {
+    id     = "expire-raw-objects"
+    status = "Enabled"
+
+    filter {
+      prefix = ""
+    }
+
+    expiration {
+      days = var.raw_expire_days
+    }
+
+    noncurrent_version_expiration {
+      noncurrent_days = var.noncurrent_expire_days
+    }
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
+    }
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "processed" {
+  bucket = aws_s3_bucket.processed.id
+
+  rule {
+    id     = "expire-processed-objects"
+    status = "Enabled"
+
+    filter {
+      prefix = ""
+    }
+
+    expiration {
+      days = var.processed_expire_days
+    }
+
+    noncurrent_version_expiration {
+      noncurrent_days = var.noncurrent_expire_days
+    }
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
+    }
+  }
+}

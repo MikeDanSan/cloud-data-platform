@@ -47,7 +47,6 @@ data "aws_iam_policy_document" "task_policy" {
     actions = [
       "s3:GetObject",
       "s3:PutObject",
-      "s3:DeleteObject"
     ]
     resources = [
       "${var.raw_bucket_arn}/*",
@@ -64,7 +63,6 @@ data "aws_iam_policy_document" "task_policy" {
       "dynamodb:UpdateItem",
       "dynamodb:DeleteItem",
       "dynamodb:Query",
-      "dynamodb:Scan"
     ]
     resources = [var.jobs_table_arn]
   }

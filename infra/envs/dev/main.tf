@@ -77,3 +77,14 @@ module "github_oidc" {
   ecs_task_role_arn      = module.iam.task_role_arn
   ecs_execution_role_arn = module.iam.execution_role_arn
 }
+
+module "waf" {
+  source       = "../../modules/waf_alb"
+  project_name = var.project_name
+  environment  = var.environment
+  tags         = local.tags
+
+  alb_arn    = module.ecs_backend.alb_arn
+  waf_mode   = "COUNT"
+  rate_limit = 2000
+}

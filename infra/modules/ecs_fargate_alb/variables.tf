@@ -8,6 +8,16 @@ variable "ecr_repository_url" {
   type = string
 }
 
+variable "domain_name" {
+  description = "Full domain name for the API (e.g. api.cloudpipes.net)"
+  type        = string
+}
+
+variable "hosted_zone_id" {
+  description = "Route53 hosted zone ID for the domain"
+  type        = string
+}
+
 variable "task_role_arn" {
   type = string
 }

@@ -52,6 +52,9 @@ module "ecs_backend" {
   raw_bucket_name       = module.s3.raw_bucket_name
   processed_bucket_name = module.s3.processed_bucket_name
   jobs_table_name       = module.dynamodb.jobs_table_name
+
+  domain_name    = "api.cloudpipes.net"
+  hosted_zone_id = "Z0390926EZVT7BYZ3CY6"
 }
 
 module "github_oidc" {

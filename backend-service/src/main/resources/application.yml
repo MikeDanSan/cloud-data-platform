@@ -4,6 +4,9 @@ spring:
 
 server:
   port: 8080
+  error:
+    include-message: always
+    include-binding-errors: always
 
 management:
   endpoint:
@@ -15,9 +18,17 @@ management:
       exposure:
         include: health
 
+app:
+  aws:
+    region: ${AWS_REGION:us-east-1}
+  dynamodb:
+    jobsTable: ${JOBS_TABLE:cloud-data-platform-dev-jobs}
+
 logging:
   level:
     root: INFO
+    org.springframework.web: INFO
+    software.amazon.awssdk: DEBUG
     com.michael.backendservice: DEBUG
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} %-5level [%thread] %logger{36} - %msg%n"

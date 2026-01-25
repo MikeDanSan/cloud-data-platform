@@ -24,3 +24,8 @@ variable "noncurrent_expire_days" {
   type    = number
   default = 7
 }
+
+variable "force_destroy" {
+  type    = bool
+  default = false
+}

@@ -4,6 +4,7 @@ locals {
 
 resource "aws_s3_bucket" "raw" {
   bucket = "${local.prefix}-raw"
+  force_destroy = var.force_destroy
   tags   = var.tags
 }
 

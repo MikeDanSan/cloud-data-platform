@@ -21,6 +21,8 @@ management:
 app:
   aws:
     region: ${AWS_REGION:us-east-1}
+  s3:
+    rawBucket: ${RAW_BUCKET:cloud-data-platform-dev-raw}
   dynamodb:
     jobsTable: ${JOBS_TABLE:cloud-data-platform-dev-jobs}
 

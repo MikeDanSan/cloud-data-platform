@@ -58,6 +58,8 @@ public class JobsController {
         }
 
         String s3Key = "raw/jobs/" + jobId + "/input.csv";
+        repo.setInputS3Key(jobId, s3Key);
+
         int expires = 300;
 
         PutObjectRequest objectRequest = PutObjectRequest.builder()

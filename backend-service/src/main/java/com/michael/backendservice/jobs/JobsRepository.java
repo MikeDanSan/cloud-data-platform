@@ -6,6 +6,7 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -63,5 +64,20 @@ public class JobsRepository {
         String inputS3Key = item.containsKey("inputS3Key") ? item.get("inputS3Key").s() : null;
         
         return Optional.of(new Job(jobId, status, createdAt, inputS3Key));
+    }
+
+    public void setInputS3Key(String jobId, String inputS3Key) {
+        Map<String, AttributeValue> key = Map.of("jobId", AttributeValue.fromS(jobId));
+
+        Map<String, String> names = Map.of("#input", "inputS3Key");
+        Map<String, AttributeValue> values = Map.of(":val", AttributeValue.fromS(inputS3Key));
+
+        ddb.updateItem(UpdateItemRequest.builder()
+                .tableName(jobsTable)
+                .key(key)
+                .updateExpression("SET #input = :val")
+                .expressionAttributeNames(names)
+                .expressionAttributeValues(values)
+                .build());
     }
 }

@@ -24,7 +24,7 @@ public class JobsRepository {
         this.jobsTable = jobsTable;
     }
 
-    public Job createJob(String jobId) {
+    public Job createJob(String jobId, String inputS3Key) {
         Instant now = Instant.now();
 
         Map<String, AttributeValue> item = new HashMap<>();
@@ -32,12 +32,16 @@ public class JobsRepository {
         item.put("status", AttributeValue.fromS(JobStatus.SUBMITTED.name()));
         item.put("createdAt", AttributeValue.fromS(now.toString()));
 
+        if (inputS3Key != null && !inputS3Key.isEmpty()) {
+            item.put("inputS3Key", AttributeValue.fromS(inputS3Key));
+        }
+
         ddb.putItem(PutItemRequest.builder()
                 .tableName(jobsTable)
                 .item(item)
                 .build());
 
-        return new Job(jobId, JobStatus.SUBMITTED.name(), now.toString());
+        return new Job(jobId, JobStatus.SUBMITTED.name(), now.toString(), inputS3Key);
     }
 
     public Optional<Job> getJob(String jobId) {
@@ -56,7 +60,8 @@ public class JobsRepository {
         Map<String, AttributeValue> item = resp.item();
         String status = item.getOrDefault("status", AttributeValue.fromS("UNKNOWN")).s();
         String createdAt = item.getOrDefault("createdAt", AttributeValue.fromS("")).s();
-
-        return Optional.of(new Job(jobId, status, createdAt));
+        String inputS3Key = item.containsKey("inputS3Key") ? item.get("inputS3Key").s() : null;
+        
+        return Optional.of(new Job(jobId, status, createdAt, inputS3Key));
     }
 }

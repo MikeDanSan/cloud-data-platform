@@ -17,10 +17,12 @@ public class JobsController {
     }
 
     @PostMapping
-    public ResponseEntity<Map<String, String>> createJob() {
+    public ResponseEntity<?> createJob(@RequestBody(required = false) CreateJobRequest request) {
         String jobId = UUID.randomUUID().toString();
-        repo.createJob(jobId);
-        return ResponseEntity.ok(Map.of("jobId", jobId));
+        String inputS3Key = (request == null) ? null : request.inputS3Key();
+
+        Job created = repo.createJob(jobId, inputS3Key);
+        return ResponseEntity.ok(created);
     }
 
     @GetMapping("/{jobId}")

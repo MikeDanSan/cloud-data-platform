@@ -30,6 +30,49 @@ These are architectural truths that should remain valid as the system evolves.
 
 ---
 
+## Job Lifecycle & Status Transitions
+
+Jobs follow a strict state machine to ensure predictable execution and failure handling.
+
+### Valid Status Transitions
+
+```mermaid
+stateDiagram-v2
+    [*] --> SUBMITTED
+    SUBMITTED --> RUNNING
+    RUNNING --> SUCCEEDED
+    RUNNING --> FAILED
+    SUCCEEDED --> [*]
+    FAILED --> [*]
+```
+
+### Transition Rules
+
+- **SUBMITTED → RUNNING**: Only valid next state. Job is ready for processing.
+- **RUNNING → SUCCEEDED**: Job completed without errors.
+- **RUNNING → FAILED**: Job encountered an error during execution.
+- **SUCCEEDED / FAILED**: Terminal states. No further transitions allowed.
+
+### Invalid Transitions (Rejected with 400)
+
+- SUBMITTED → SUCCEEDED (must go through RUNNING)
+- SUBMITTED → FAILED (must go through RUNNING)
+- SUCCEEDED → any state (terminal)
+- FAILED → any state (terminal)
+
+### Implementation
+
+Status transitions are validated in `JobStatusTransitionValidator` before being persisted to DynamoDB.
+The `updatedAt` timestamp and optional `statusMessage` are updated with each transition.
+
+### Future: Worker Integration
+
+When Spark workers begin reporting job status, they will POST to `/internal/jobs/{jobId}/status`
+with the appropriate status update and a descriptive message. The API will validate the transition
+and persist the change atomically.
+
+---
+
 ## Explicit Non-Goals (For MVP)
 
 The following are intentionally excluded to preserve focus and delivery speed:

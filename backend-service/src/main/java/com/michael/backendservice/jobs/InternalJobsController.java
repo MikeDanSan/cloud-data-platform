@@ -4,6 +4,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/internal/jobs")
@@ -36,10 +37,28 @@ public class InternalJobsController {
             ));
         }
 
-        if (repo.getJob(jobId).isEmpty()) {
+        Job job = repo.getJob(jobId).orElse(null);
+        if (job == null) {
             return ResponseEntity.status(404).body(Map.of(
                     "error", "Job not found",
                     "jobId", jobId
+            ));
+        }
+
+        JobStatus currentStatus = JobStatus.valueOf(job.status());
+
+        // Validate status transition
+        if (!JobStatusTransitionValidator.isValidTransition(currentStatus, newStatus)) {
+            var allowedStatuses = JobStatusTransitionValidator.getAllowedTransitions(currentStatus)
+                    .stream()
+                    .map(JobStatus::name)
+                    .collect(Collectors.toSet());
+
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Invalid status transition",
+                    "currentStatus", currentStatus.name(),
+                    "attemptedStatus", newStatus.name(),
+                    "allowedNextStatuses", allowedStatuses
             ));
         }
 

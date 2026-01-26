@@ -4,5 +4,7 @@ public record Job(
         String jobId,
         String status,
         String createdAt,
-        String inputS3Key
+        String inputS3Key,
+        String updatedAt,
+        String statusMessage
 ) {}

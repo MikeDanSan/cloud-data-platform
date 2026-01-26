@@ -1,5 +1,11 @@
 package com.michael.backendservice.jobs;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,6 +20,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/jobs")
+@Tag(name = "Jobs API", description = "Public endpoints for job management")
 public class JobsController {
 
     private final JobsRepository repo;
@@ -30,6 +37,10 @@ public class JobsController {
         this.rawBucket = rawBucket;
     }
 
+    @Operation(
+    summary = "Create a job", 
+    description = "Creates a new job record with SUBMITTED status. Optionally accepts inputS3Key."
+    )
     @PostMapping
     public ResponseEntity<?> createJob(@RequestBody(required = false) CreateJobRequest request) {
         String jobId = UUID.randomUUID().toString();
@@ -38,6 +49,10 @@ public class JobsController {
         return ResponseEntity.ok(created);
     }
 
+    @Operation(
+    summary = "Get job", 
+    description = "Retrieves job details by jobId including status, timestamps, and S3 keys."
+    )
     @GetMapping("/{jobId}")
     public ResponseEntity<?> getJob(@PathVariable String jobId) {
         return repo.getJob(jobId)
@@ -48,6 +63,10 @@ public class JobsController {
                 )));
     }
 
+    @Operation(
+    summary = "Generate upload URL", 
+    description = "Generates a presigned S3 PUT URL for uploading job input data and persists the S3 key to the job record."
+    )
     @PostMapping("/{jobId}/upload-url")
     public ResponseEntity<?> createUploadUrl(@PathVariable String jobId) {
         if (repo.getJob(jobId).isEmpty()) {

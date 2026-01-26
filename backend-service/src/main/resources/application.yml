@@ -18,6 +18,17 @@ management:
       exposure:
         include: health
 
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+  info:
+    title: Cloud Data Platform API
+    description: Backend API for job orchestration and data processing
+    version: 0.1.0
+
 app:
   aws:
     region: ${AWS_REGION:us-east-1}

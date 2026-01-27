@@ -149,8 +149,13 @@ The backend service requires the following environment variables in production:
 **EMR Serverless:**
 - `EMR_APPLICATION_ID`: EMR Serverless application ID (required in production, empty default for local/CI)
 - `EMR_JOB_ROLE_ARN`: IAM role ARN for EMR job execution (required in production, empty default for local/CI)
-- `SPARK_JAR_PATH`: S3 path to Spark job JAR (default: `s3://cloud-data-platform-dev-raw/jars/cloud-data-platform-spark-jobs-0.1.0.jar`)
 
 **Local Development & CI:**
 All variables have safe defaults in `application.yml` to allow `./gradlew clean build` and test execution without AWS credentials.
 In ECS/production, these are injected via task environment variables.
+
+**Spark Job Execution:**
+- `SPARK_JAR_PATH`: S3 path to compiled Spark job JAR (default: `s3://cloud-data-platform-dev-raw/jars/cloud-data-platform-spark-jobs-0.1.0.jar`)
+
+All EMR and Spark configuration defaults enable local builds and CI test execution without AWS credentials.
+Production deployments override these via ECS task environment variables.

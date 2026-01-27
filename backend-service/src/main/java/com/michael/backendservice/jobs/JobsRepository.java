@@ -6,12 +6,15 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
+import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemResponse;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -36,7 +39,7 @@ public class JobsRepository {
         item.put("createdAt", AttributeValue.fromS(now.toString()));
         item.put("updatedAt", AttributeValue.fromS(now.toString()));
 
-        if (inputS3Key != null && !inputS3Key.isEmpty()) {
+        if (inputS3Key != null && !inputS3Key.isBlank()) {
             item.put("inputS3Key", AttributeValue.fromS(inputS3Key));
         }
 
@@ -61,15 +64,7 @@ public class JobsRepository {
             return Optional.empty();
         }
 
-        Map<String, AttributeValue> item = resp.item();
-        String status = item.getOrDefault("status", AttributeValue.fromS("UNKNOWN")).s();
-        String createdAt = item.getOrDefault("createdAt", AttributeValue.fromS("")).s();
-        String inputS3Key = item.containsKey("inputS3Key") ? item.get("inputS3Key").s() : null;
-        String updatedAt = item.containsKey("updatedAt") ? item.get("updatedAt").s() : null;
-        String statusMessage = item.containsKey("statusMessage") ? item.get("statusMessage").s() : null;
-        String outputS3Key = item.containsKey("outputS3Key") ? item.get("outputS3Key").s() : null;
-
-        return Optional.of(new Job(jobId, status, createdAt, inputS3Key, updatedAt, statusMessage, outputS3Key));
+        return Optional.of(mapToJob(resp.item()));
     }
 
     public void setInputS3Key(String jobId, String inputS3Key) {
@@ -91,42 +86,80 @@ public class JobsRepository {
         String now = Instant.now().toString();
         Map<String, AttributeValue> key = Map.of("jobId", AttributeValue.fromS(jobId));
 
-        Map<String, String> names = Map.of(
-                "#status", "status",
-                "#updatedAt", "updatedAt",
-                "#statusMessage", "statusMessage",
-                "#outputS3Key", "outputS3Key"
-        );
+        StringBuilder setExpr = new StringBuilder("SET #status = :status, #updatedAt = :updatedAt");
+        Map<String, String> names = new HashMap<>();
+        names.put("#status", "status");
+        names.put("#updatedAt", "updatedAt");
 
-        Map<String, AttributeValue> values = Map.of(
-                ":status", AttributeValue.fromS(status.name()),
-                ":updatedAt", AttributeValue.fromS(now),
-                ":statusMessage", (message == null || message.isBlank())
-                        ? AttributeValue.fromS("")
-                        : AttributeValue.fromS(message),
-                ":outputS3Key", (outputS3Key == null || outputS3Key.isBlank())
-                        ? AttributeValue.fromS("")
-                        : AttributeValue.fromS(outputS3Key)
-        );
+        Map<String, AttributeValue> values = new HashMap<>();
+        values.put(":status", AttributeValue.fromS(status.name()));
+        values.put(":updatedAt", AttributeValue.fromS(now));
 
-        UpdateItemResponse resp = ddb.updateItem(UpdateItemRequest.builder()
+        if (message != null && !message.isBlank()) {
+            setExpr.append(", #statusMessage = :statusMessage");
+            names.put("#statusMessage", "statusMessage");
+            values.put(":statusMessage", AttributeValue.fromS(message));
+        } else {
+            names.put("#statusMessage", "statusMessage");
+        }
+
+        if (outputS3Key != null && !outputS3Key.isBlank()) {
+            setExpr.append(", #outputS3Key = :outputS3Key");
+            names.put("#outputS3Key", "outputS3Key");
+            values.put(":outputS3Key", AttributeValue.fromS(outputS3Key));
+        } else {
+            names.put("#outputS3Key", "outputS3Key");
+        }
+
+        UpdateItemRequest.Builder req = UpdateItemRequest.builder()
                 .tableName(jobsTable)
                 .key(key)
-                .updateExpression("SET #status = :status, #updatedAt = :updatedAt, #statusMessage = :statusMessage, #outputS3Key = :outputS3Key")
+                .updateExpression(setExpr.toString())
                 .expressionAttributeNames(names)
                 .expressionAttributeValues(values)
-                .returnValues(ReturnValue.ALL_NEW)
-                .build());
+                .returnValues("ALL_NEW");
 
-        Map<String, AttributeValue> item = resp.attributes();
+        UpdateItemResponse resp = ddb.updateItem(req.build());
 
-        String createdAt = item.getOrDefault("createdAt", AttributeValue.fromS("")).s();
-        String inputS3Key = item.containsKey("inputS3Key") ? item.get("inputS3Key").s() : null;
-        String updatedAt = item.getOrDefault("updatedAt", AttributeValue.fromS("")).s();
-        String statusMessage = item.getOrDefault("statusMessage", AttributeValue.fromS("")).s();
-        String outS3Key = item.containsKey("outputS3Key") ? item.get("outputS3Key").s() : null;
-
-        return new Job(jobId, status.name(), createdAt, inputS3Key, updatedAt, statusMessage, outS3Key);
+        return mapToJob(resp.attributes());
     }
 
+    public JobsPage listJobs(Integer limit, String lastEvaluatedJobId) {
+        ScanRequest.Builder builder = ScanRequest.builder()
+                .tableName(jobsTable);
+
+        if (limit != null && limit > 0) {
+            builder.limit(limit);
+        }
+
+        if (lastEvaluatedJobId != null && !lastEvaluatedJobId.isBlank()) {
+            builder.exclusiveStartKey(Map.of("jobId", AttributeValue.fromS(lastEvaluatedJobId)));
+        }
+
+        ScanResponse resp = ddb.scan(builder.build());
+
+        List<Job> items = new ArrayList<>();
+        for (Map<String, AttributeValue> item : resp.items()) {
+            items.add(mapToJob(item));
+        }
+
+        String nextKey = null;
+        if (resp.hasLastEvaluatedKey() && resp.lastEvaluatedKey().containsKey("jobId")) {
+            nextKey = resp.lastEvaluatedKey().get("jobId").s();
+        }
+
+        return new JobsPage(items, nextKey);
+    }
+
+    private Job mapToJob(Map<String, AttributeValue> item) {
+        String jobId = item.getOrDefault("jobId", AttributeValue.fromS("")).s();
+        String status = item.getOrDefault("status", AttributeValue.fromS("UNKNOWN")).s();
+        String createdAt = item.getOrDefault("createdAt", AttributeValue.fromS("")).s();
+        String inputS3Key = item.containsKey("inputS3Key") ? item.get("inputS3Key").s() : null;
+        String updatedAt = item.containsKey("updatedAt") ? item.get("updatedAt").s() : null;
+        String statusMessage = item.containsKey("statusMessage") ? item.get("statusMessage").s() : null;
+        String outputS3Key = item.containsKey("outputS3Key") ? item.get("outputS3Key").s() : null;
+
+        return new Job(jobId, status, createdAt, inputS3Key, updatedAt, statusMessage, outputS3Key);
+    }
 }

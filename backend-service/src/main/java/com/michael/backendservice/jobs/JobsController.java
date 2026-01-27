@@ -34,8 +34,21 @@ public class JobsController {
     }
 
     @Operation(
-    summary = "Create a job", 
-    description = "Creates a new job record with SUBMITTED status. Optionally accepts inputS3Key."
+            summary = "List jobs",
+            description = "Returns paginated list of jobs. Use limit and lastKey for pagination."
+    )
+    @GetMapping
+    public ResponseEntity<?> listJobs(
+            @RequestParam(name = "limit", required = false) Integer limit,
+            @RequestParam(name = "lastKey", required = false) String lastKey
+    ) {
+        JobsPage page = repo.listJobs(limit, lastKey);
+        return ResponseEntity.ok(page);
+    }
+
+    @Operation(
+            summary = "Create a job",
+            description = "Creates a new job record with SUBMITTED status. Optionally accepts inputS3Key."
     )
     @PostMapping
     public ResponseEntity<?> createJob(@RequestBody(required = false) CreateJobRequest request) {
@@ -46,8 +59,8 @@ public class JobsController {
     }
 
     @Operation(
-    summary = "Get job", 
-    description = "Retrieves job details by jobId including status, timestamps, and S3 keys."
+            summary = "Get job",
+            description = "Retrieves job details by jobId including status, timestamps, and S3 keys."
     )
     @GetMapping("/{jobId}")
     public ResponseEntity<?> getJob(@PathVariable String jobId) {
@@ -60,8 +73,8 @@ public class JobsController {
     }
 
     @Operation(
-    summary = "Generate upload URL", 
-    description = "Generates a presigned S3 PUT URL for uploading job input data and persists the S3 key to the job record."
+            summary = "Generate upload URL",
+            description = "Generates a presigned S3 PUT URL for uploading job input data and persists the S3 key to the job record."
     )
     @PostMapping("/{jobId}/upload-url")
     public ResponseEntity<?> createUploadUrl(@PathVariable String jobId) {

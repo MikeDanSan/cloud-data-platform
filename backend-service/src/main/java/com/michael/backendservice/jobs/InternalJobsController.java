@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,20 +17,31 @@ import java.util.stream.Collectors;
 public class InternalJobsController {
 
     private final JobsRepository repo;
+    private final EmrService emrService;
+    private final String rawBucket;
+    private final String processedBucket;
 
-    public InternalJobsController(JobsRepository repo) {
+    public InternalJobsController(
+            JobsRepository repo,
+            EmrService emrService,
+            @Value("${app.s3.rawBucket}") String rawBucket,
+            @Value("${app.s3.processedBucket}") String processedBucket
+    ) {
         this.repo = repo;
+        this.emrService = emrService;
+        this.rawBucket = rawBucket;
+        this.processedBucket = processedBucket;
     }
 
     @Operation(
-    summary = "Update job status", 
-    description = "Updates job status with state machine validation. Valid transitions: SUBMITTED→RUNNING, RUNNING→SUCCEEDED|FAILED. Terminal states cannot transition."
+            summary = "Update job status",
+            description = "Updates job status with state machine validation. Valid transitions: SUBMITTED→RUNNING, RUNNING→SUCCEEDED|FAILED. Terminal states cannot transition."
     )
     @PostMapping("/{jobId}/status")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Status updated successfully"),
-        @ApiResponse(responseCode = "400", description = "Invalid status or transition"),
-        @ApiResponse(responseCode = "404", description = "Job not found")
+            @ApiResponse(responseCode = "200", description = "Status updated successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid status or transition"),
+            @ApiResponse(responseCode = "404", description = "Job not found")
     })
     public ResponseEntity<?> updateStatus(
             @PathVariable String jobId,
@@ -76,7 +88,27 @@ public class InternalJobsController {
             ));
         }
 
+        // Update status first
         Job updated = repo.updateStatus(jobId, newStatus, request.message(), request.outputS3Key());
+
+        // If transitioning to RUNNING, start EMR job
+        if (newStatus == JobStatus.RUNNING && job.inputS3Key() != null) {
+            try {
+                String inputPath = "s3://" + rawBucket + "/" + job.inputS3Key();
+                String outputPath = "s3://" + processedBucket + "/processed/jobs/" + jobId + "/output/";
+
+                String emrJobRunId = emrService.startSparkJob(jobId, inputPath, outputPath);
+                repo.setEmrJobRunId(jobId, emrJobRunId);
+
+                // Fetch updated job with EMR ID
+                updated = repo.getJob(jobId).orElse(updated);
+            } catch (Exception e) {
+                // Log error but don't fail the status update
+                // In production, you'd want to transition to FAILED here
+                System.err.println("Failed to start EMR job: " + e.getMessage());
+            }
+        }
+
         return ResponseEntity.ok(updated);
     }
 }

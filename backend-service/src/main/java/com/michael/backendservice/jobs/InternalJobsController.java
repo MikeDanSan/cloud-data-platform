@@ -24,8 +24,8 @@ public class InternalJobsController {
     public InternalJobsController(
             JobsRepository repo,
             EmrService emrService,
-            @Value("${app.s3.rawBucket}") String rawBucket,
-            @Value("${app.s3.processedBucket}") String processedBucket
+            @Value("${app.s3.rawBucket:cloud-data-platform-dev-raw}") String rawBucket,
+            @Value("${app.s3.processedBucket:cloud-data-platform-dev-processed}") String processedBucket
     ) {
         this.repo = repo;
         this.emrService = emrService;
@@ -104,7 +104,6 @@ public class InternalJobsController {
                 updated = repo.getJob(jobId).orElse(updated);
             } catch (Exception e) {
                 // Log error but don't fail the status update
-                // In production, you'd want to transition to FAILED here
                 System.err.println("Failed to start EMR job: " + e.getMessage());
             }
         }

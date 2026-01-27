@@ -6,8 +6,8 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
-import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
+import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
+import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemResponse;
 
@@ -20,6 +20,9 @@ import java.util.Optional;
 
 @Repository
 public class JobsRepository {
+
+    private static final String JOB_PARTITION_VALUE = "ALL";
+    private static final String GSI_NAME = "jobPartition-createdAt-index";
 
     private final DynamoDbClient ddb;
     private final String jobsTable;
@@ -35,6 +38,7 @@ public class JobsRepository {
 
         Map<String, AttributeValue> item = new HashMap<>();
         item.put("jobId", AttributeValue.fromS(jobId));
+        item.put("jobPartition", AttributeValue.fromS(JOB_PARTITION_VALUE));
         item.put("status", AttributeValue.fromS(JobStatus.SUBMITTED.name()));
         item.put("createdAt", AttributeValue.fromS(now.toString()));
         item.put("updatedAt", AttributeValue.fromS(now.toString()));
@@ -99,53 +103,58 @@ public class JobsRepository {
             setExpr.append(", #statusMessage = :statusMessage");
             names.put("#statusMessage", "statusMessage");
             values.put(":statusMessage", AttributeValue.fromS(message));
-        } else {
-            names.put("#statusMessage", "statusMessage");
         }
 
         if (outputS3Key != null && !outputS3Key.isBlank()) {
             setExpr.append(", #outputS3Key = :outputS3Key");
             names.put("#outputS3Key", "outputS3Key");
             values.put(":outputS3Key", AttributeValue.fromS(outputS3Key));
-        } else {
-            names.put("#outputS3Key", "outputS3Key");
         }
 
-        UpdateItemRequest.Builder req = UpdateItemRequest.builder()
+        UpdateItemResponse resp = ddb.updateItem(UpdateItemRequest.builder()
                 .tableName(jobsTable)
                 .key(key)
                 .updateExpression(setExpr.toString())
                 .expressionAttributeNames(names)
                 .expressionAttributeValues(values)
-                .returnValues("ALL_NEW");
-
-        UpdateItemResponse resp = ddb.updateItem(req.build());
+                .returnValues("ALL_NEW")
+                .build());
 
         return mapToJob(resp.attributes());
     }
 
-    public JobsPage listJobs(Integer limit, String lastEvaluatedJobId) {
-        ScanRequest.Builder builder = ScanRequest.builder()
-                .tableName(jobsTable);
+    public JobsPage listJobs(Integer limit, Map<String, String> lastEvaluatedKey) {
+        QueryRequest.Builder builder = QueryRequest.builder()
+                .tableName(jobsTable)
+                .indexName(GSI_NAME)
+                .keyConditionExpression("jobPartition = :partition")
+                .expressionAttributeValues(Map.of(
+                        ":partition", AttributeValue.fromS(JOB_PARTITION_VALUE)
+                ))
+                .scanIndexForward(false);
 
         if (limit != null && limit > 0) {
             builder.limit(limit);
         }
 
-        if (lastEvaluatedJobId != null && !lastEvaluatedJobId.isBlank()) {
-            builder.exclusiveStartKey(Map.of("jobId", AttributeValue.fromS(lastEvaluatedJobId)));
+        if (lastEvaluatedKey != null && !lastEvaluatedKey.isEmpty()) {
+            Map<String, AttributeValue> exclusiveStartKey = new HashMap<>();
+            lastEvaluatedKey.forEach((k, v) -> exclusiveStartKey.put(k, AttributeValue.fromS(v)));
+            builder.exclusiveStartKey(exclusiveStartKey);
         }
 
-        ScanResponse resp = ddb.scan(builder.build());
+        QueryResponse resp = ddb.query(builder.build());
 
         List<Job> items = new ArrayList<>();
         for (Map<String, AttributeValue> item : resp.items()) {
             items.add(mapToJob(item));
         }
 
-        String nextKey = null;
-        if (resp.hasLastEvaluatedKey() && resp.lastEvaluatedKey().containsKey("jobId")) {
-            nextKey = resp.lastEvaluatedKey().get("jobId").s();
+        Map<String, String> nextKey = null;
+        if (resp.hasLastEvaluatedKey() && !resp.lastEvaluatedKey().isEmpty()) {
+            Map<String, String> map = new HashMap<>();
+            resp.lastEvaluatedKey().forEach((k, v) -> map.put(k, v.s()));
+            nextKey = map;
         }
 
         return new JobsPage(items, nextKey);

@@ -1,5 +1,7 @@
 package com.michael.backendservice.jobs;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Value;
@@ -11,6 +13,7 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequ
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 import java.time.Duration;
+import java.util.Base64;
 import java.util.Map;
 import java.util.UUID;
 
@@ -22,6 +25,7 @@ public class JobsController {
     private final JobsRepository repo;
     private final S3Presigner presigner;
     private final String rawBucket;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public JobsController(
             JobsRepository repo,
@@ -35,15 +39,43 @@ public class JobsController {
 
     @Operation(
             summary = "List jobs",
-            description = "Returns paginated list of jobs. Use limit and lastKey for pagination."
+            description = "Returns paginated list of jobs. Use limit and lastKey (base64-encoded JSON) for pagination."
     )
     @GetMapping
     public ResponseEntity<?> listJobs(
             @RequestParam(name = "limit", required = false) Integer limit,
             @RequestParam(name = "lastKey", required = false) String lastKey
     ) {
-        JobsPage page = repo.listJobs(limit, lastKey);
-        return ResponseEntity.ok(page);
+        Map<String, String> lastEvaluatedKey = null;
+
+        if (lastKey != null && !lastKey.isBlank()) {
+            try {
+                String decoded = new String(Base64.getUrlDecoder().decode(lastKey));
+                lastEvaluatedKey = objectMapper.readValue(decoded, new TypeReference<>() {});
+            } catch (Exception e) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "error", "Invalid lastKey format"
+                ));
+            }
+        }
+
+        JobsPage page = repo.listJobs(limit, lastEvaluatedKey);
+
+        // Encode lastEvaluatedKey as base64 JSON for clean URLs
+        String nextKey = null;
+        if (page.lastEvaluatedKey() != null) {
+            try {
+                String json = objectMapper.writeValueAsString(page.lastEvaluatedKey());
+                nextKey = Base64.getUrlEncoder().withoutPadding().encodeToString(json.getBytes());
+            } catch (Exception e) {
+                // Log error but don't fail the response
+            }
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "items", page.items(),
+                "lastEvaluatedKey", nextKey != null ? nextKey : ""
+        ));
     }
 
     @Operation(

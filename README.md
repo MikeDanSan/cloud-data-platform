@@ -113,8 +113,25 @@ pong
 - M1: Spring Boot skeleton (`/ping`, `/health`)
 - M2: Terraform creates S3 + DynamoDB
 - M3: Thin-slice flow: create job -> store metadata -> upload input -> return jobId
-- M4: Add EMR submission + Spark job
-- M5: Observability + hardening
+- M4: EMR/Spark integration (provision cluster, run simple job, store step IDs)
+- M5: Status reporting (worker callbacks or step polling → /internal/jobs/{id}/status)
+- M6: Results handling (output manifest + presigned GET)
+- M7: Observability (structured logs, metrics, alarms)
+- M8: Security hardening (WAF BLOCK, rate limiting, internal token)
+- M9: Cost & scaling (DynamoDB autoscaling, S3 lifecycle tuning, ECS scaling)
+- M10: CI enhancements (LocalStack integration tests, contract tests)
+- M11: Listing filters (time-range/status filters via GSI, opaque pagination token)
+- M12: Control features (job cancellation, timeouts, retry/backoff, DLQ)
+
+## Commit Conventions
+
+- Format: “<Milestone>: <imperative description>” (e.g., M3.3.6: add jobs listing and clean optional fields)
+- One concern per commit; separate backend/infra/CI/docs
+- Imperative, concise, milestone-scoped; no “wip” or mixed concerns
+
+## API Docs
+
+- OpenAPI: /swagger-ui.html, /v3/api-docs (importable into Insomnia)
 
 ## License
 

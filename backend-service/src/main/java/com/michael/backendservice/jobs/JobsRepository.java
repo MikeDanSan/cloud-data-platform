@@ -52,7 +52,7 @@ public class JobsRepository {
                 .item(item)
                 .build());
 
-        return new Job(jobId, JobStatus.SUBMITTED.name(), now.toString(), inputS3Key, now.toString(), null, null);
+        return new Job(jobId, JobStatus.SUBMITTED.name(), now.toString(), inputS3Key, now.toString(), null, null, null);
     }
 
     public Optional<Job> getJob(String jobId) {
@@ -168,7 +168,23 @@ public class JobsRepository {
         String updatedAt = item.containsKey("updatedAt") ? item.get("updatedAt").s() : null;
         String statusMessage = item.containsKey("statusMessage") ? item.get("statusMessage").s() : null;
         String outputS3Key = item.containsKey("outputS3Key") ? item.get("outputS3Key").s() : null;
+        String emrJobRunId = item.containsKey("emrJobRunId") ? item.get("emrJobRunId").s() : null;
 
-        return new Job(jobId, status, createdAt, inputS3Key, updatedAt, statusMessage, outputS3Key);
+        return new Job(jobId, status, createdAt, inputS3Key, updatedAt, statusMessage, outputS3Key, emrJobRunId);
+    }
+
+    public void setEmrJobRunId(String jobId, String emrJobRunId) {
+    Map<String, AttributeValue> key = Map.of("jobId", AttributeValue.fromS(jobId));
+
+    Map<String, String> names = Map.of("#emr", "emrJobRunId");
+    Map<String, AttributeValue> values = Map.of(":val", AttributeValue.fromS(emrJobRunId));
+
+    ddb.updateItem(UpdateItemRequest.builder()
+            .tableName(jobsTable)
+            .key(key)
+            .updateExpression("SET #emr = :val")
+            .expressionAttributeNames(names)
+            .expressionAttributeValues(values)
+            .build());
     }
 }

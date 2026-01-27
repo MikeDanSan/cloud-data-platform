@@ -7,5 +7,6 @@ public record Job(
         String inputS3Key,
         String updatedAt,
         String statusMessage,
-        String outputS3Key
+        String outputS3Key,
+        String emrJobRunId
 ) {}

@@ -12,6 +12,23 @@ resource "aws_dynamodb_table" "jobs" {
     type = "S"
   }
 
+  attribute {
+    name = "jobPartition"
+    type = "S"
+  }
+
+  attribute {
+    name = "createdAt"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name            = "jobPartition-createdAt-index"
+    hash_key        = "jobPartition"
+    range_key       = "createdAt"
+    projection_type = "ALL"
+  }
+
   point_in_time_recovery {
     enabled = true
   }

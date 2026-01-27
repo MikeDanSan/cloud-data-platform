@@ -6,5 +6,6 @@ public record Job(
         String createdAt,
         String inputS3Key,
         String updatedAt,
-        String statusMessage
+        String statusMessage,
+        String outputS3Key
 ) {}

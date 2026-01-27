@@ -76,7 +76,7 @@ public class InternalJobsController {
             ));
         }
 
-        Job updated = repo.updateStatus(jobId, newStatus, request.message());
+        Job updated = repo.updateStatus(jobId, newStatus, request.message(), request.outputS3Key());
         return ResponseEntity.ok(updated);
     }
 }

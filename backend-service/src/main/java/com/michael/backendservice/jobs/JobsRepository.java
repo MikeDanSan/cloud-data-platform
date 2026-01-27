@@ -45,7 +45,7 @@ public class JobsRepository {
                 .item(item)
                 .build());
 
-        return new Job(jobId, JobStatus.SUBMITTED.name(), now.toString(), inputS3Key, now.toString(), null);
+        return new Job(jobId, JobStatus.SUBMITTED.name(), now.toString(), inputS3Key, now.toString(), null, null);
     }
 
     public Optional<Job> getJob(String jobId) {
@@ -67,8 +67,9 @@ public class JobsRepository {
         String inputS3Key = item.containsKey("inputS3Key") ? item.get("inputS3Key").s() : null;
         String updatedAt = item.containsKey("updatedAt") ? item.get("updatedAt").s() : null;
         String statusMessage = item.containsKey("statusMessage") ? item.get("statusMessage").s() : null;
+        String outputS3Key = item.containsKey("outputS3Key") ? item.get("outputS3Key").s() : null;
 
-        return Optional.of(new Job(jobId, status, createdAt, inputS3Key, updatedAt, statusMessage));
+        return Optional.of(new Job(jobId, status, createdAt, inputS3Key, updatedAt, statusMessage, outputS3Key));
     }
 
     public void setInputS3Key(String jobId, String inputS3Key) {
@@ -86,15 +87,15 @@ public class JobsRepository {
                 .build());
     }
 
-    public Job updateStatus(String jobId, JobStatus status, String message) {
+    public Job updateStatus(String jobId, JobStatus status, String message, String outputS3Key) {
         String now = Instant.now().toString();
-
         Map<String, AttributeValue> key = Map.of("jobId", AttributeValue.fromS(jobId));
 
         Map<String, String> names = Map.of(
                 "#status", "status",
                 "#updatedAt", "updatedAt",
-                "#statusMessage", "statusMessage"
+                "#statusMessage", "statusMessage",
+                "#outputS3Key", "outputS3Key"
         );
 
         Map<String, AttributeValue> values = Map.of(
@@ -102,13 +103,16 @@ public class JobsRepository {
                 ":updatedAt", AttributeValue.fromS(now),
                 ":statusMessage", (message == null || message.isBlank())
                         ? AttributeValue.fromS("")
-                        : AttributeValue.fromS(message)
+                        : AttributeValue.fromS(message),
+                ":outputS3Key", (outputS3Key == null || outputS3Key.isBlank())
+                        ? AttributeValue.fromS("")
+                        : AttributeValue.fromS(outputS3Key)
         );
 
         UpdateItemResponse resp = ddb.updateItem(UpdateItemRequest.builder()
                 .tableName(jobsTable)
                 .key(key)
-                .updateExpression("SET #status = :status, #updatedAt = :updatedAt, #statusMessage = :statusMessage")
+                .updateExpression("SET #status = :status, #updatedAt = :updatedAt, #statusMessage = :statusMessage, #outputS3Key = :outputS3Key")
                 .expressionAttributeNames(names)
                 .expressionAttributeValues(values)
                 .returnValues(ReturnValue.ALL_NEW)
@@ -120,8 +124,9 @@ public class JobsRepository {
         String inputS3Key = item.containsKey("inputS3Key") ? item.get("inputS3Key").s() : null;
         String updatedAt = item.getOrDefault("updatedAt", AttributeValue.fromS("")).s();
         String statusMessage = item.getOrDefault("statusMessage", AttributeValue.fromS("")).s();
+        String outS3Key = item.containsKey("outputS3Key") ? item.get("outputS3Key").s() : null;
 
-        return new Job(jobId, status.name(), createdAt, inputS3Key, updatedAt, statusMessage);
+        return new Job(jobId, status.name(), createdAt, inputS3Key, updatedAt, statusMessage, outS3Key);
     }
 
 }

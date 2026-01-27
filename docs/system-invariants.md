@@ -71,6 +71,44 @@ When Spark workers begin reporting job status, they will POST to `/internal/jobs
 with the appropriate status update and a descriptive message. The API will validate the transition
 and persist the change atomically.
 
+### Nice to haves
+
+- API & Contracts
+   - AuthN/Z (OIDC/JWT), rate limiting, request validation, idempotency keys, pagination tokens with opaque cursors.
+   - Error contracts and correlation IDs in responses/logs.
+- Job Orchestration
+   - Worker callbacks with signed requests; retry/backoff; DLQ for failed callbacks.
+   - Job timeouts and cancellation semantics.
+   - Status audit trail (who/when changed state) beyond current status fields.
+- Data Pipeline
+   - Output manifest/index for processed artifacts; checksums for integrity.
+   - Schema/versioning for inputs and outputs; basic validation before enqueue.
+   - Quotas per user/tenant (future multi-tenancy).
+- Reliability & Ops
+   - Structured logging with trace/span IDs; log redaction.
+   - Metrics: request latencies, DynamoDB/S3/EMR calls, job lifecycle durations.
+   - Alarms: 5xx rates, WAF findings, DynamoDB throttles, EMR step failures.
+   - Runbooks for common failures (upload failures, job stuck RUNNING, EMR step retries).
+- Security
+   - IAM least-privilege review; split roles for control plane vs. data plane.
+   - WAF to BLOCK mode in prod; custom rules (path allowlist, geo/rate tuning).
+   - S3 object encryption KMS, bucket key usage; deny public access (already set).
+   - Signed worker callbacks; audit logging for status changes.
+- Cost & Scaling
+   - DynamoDB autoscaling / RCUs+WCUs alarms; GSI capacity alarms.
+   - S3 storage class transitions for processed artifacts; tighter lifecycle policies.
+   - EMR right-sizing/spot; per-step vs. cluster reuse comparison.
+   - ECS scaling policies (CPU/latency-based); task count floor/ceiling.
+- DX & Tooling
+   - Local dev data fixtures; smoke tests hitting /jobs and /internal/jobs.
+   - Postman/Insomnia collection; OpenAPI examples.
+   - CI: integration tests with LocalStack for S3/DDB; contract tests for status transitions.
+- Data Governance
+   - PII scanning on uploads; tagging datasets/jobs; retention policies per dataset type.
+   - Access logging (S3 server access logs / CloudTrail data events) for audits.
+- Performance
+   - Bulk listing with consistent pagination; secondary indexes for filtering by status.
+   - Caching presigned URL generation limits; request shaping on upload endpoints.
 ---
 
 ## Explicit Non-Goals (For MVP)

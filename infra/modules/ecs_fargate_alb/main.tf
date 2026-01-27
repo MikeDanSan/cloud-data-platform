@@ -177,7 +177,11 @@ resource "aws_ecs_task_definition" "this" {
         { name = "RAW_BUCKET", value = var.raw_bucket_name },
         { name = "PROCESSED_BUCKET", value = var.processed_bucket_name },
         { name = "JOBS_TABLE", value = var.jobs_table_name },
-        { name = "SPRING_PROFILES_ACTIVE", value = "dev" }
+        { name = "SPRING_PROFILES_ACTIVE", value = "dev" },
+        { name  = "EMR_APPLICATION_ID", value = var.emr_application_id },
+        { name  = "EMR_JOB_ROLE_ARN", value = var.emr_job_role_arn },
+        { name  = "SPARK_JAR_PATH", value = "s3://${var.raw_bucket_name}/jars/cloud-data-platform-spark-jobs-0.1.0.jar" },
+        { name  = "PROCESSED_BUCKET", value = var.processed_bucket_name }
       ]
 
       logConfiguration = {

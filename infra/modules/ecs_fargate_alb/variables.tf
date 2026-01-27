@@ -52,3 +52,11 @@ variable "memory" {
   type    = number
   default = 512
 }
+
+variable "emr_application_id" {
+  type = string
+}
+
+variable "emr_job_role_arn" {
+  type = string
+}

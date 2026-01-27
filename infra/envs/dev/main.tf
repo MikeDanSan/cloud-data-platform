@@ -68,6 +68,9 @@ module "ecs_backend" {
   processed_bucket_name = module.s3.processed_bucket_name
   jobs_table_name       = module.dynamodb.jobs_table_name
 
+  emr_application_id = module.emr_serverless.application_id
+  emr_job_role_arn   = module.emr_serverless.job_role_arn
+
   domain_name    = "api.cloudpipes.net"
   hosted_zone_id = "Z0390926EZVT7BYZ3CY6"
 }

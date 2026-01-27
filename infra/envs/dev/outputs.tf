@@ -42,3 +42,11 @@ output "waf_web_acl_name" {
 output "budget_name" {
   value = module.budget.budget_name
 }
+
+output "emr_application_id" {
+  value = module.emr_serverless.application_id
+}
+
+output "emr_job_role_arn" {
+  value = module.emr_serverless.job_role_arn
+}

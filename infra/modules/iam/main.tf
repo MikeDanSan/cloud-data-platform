@@ -66,6 +66,32 @@ data "aws_iam_policy_document" "task_policy" {
     ]
     resources = [var.jobs_table_arn]
   }
+
+  # EMR Serverless permissions
+  statement {
+    effect = "Allow"
+    actions = [
+      "emr-serverless:StartJobRun",
+      "emr-serverless:GetJobRun",
+      "emr-serverless:CancelJobRun",
+      "emr-serverless:ListJobRuns"
+    ]
+    resources = ["*"]
+  }
+
+  # IAM PassRole for EMR job execution
+  statement {
+    effect = "Allow"
+    actions = [
+      "iam:PassRole"
+    ]
+    resources = [var.emr_job_role_arn]
+    condition {
+      test     = "StringLike"
+      variable = "iam:PassedToService"
+      values   = ["emr-serverless.amazonaws.com"]
+    }
+  }
 }
 
 resource "aws_iam_policy" "task" {

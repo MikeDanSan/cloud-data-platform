@@ -33,6 +33,16 @@ module "iam" {
   raw_bucket_arn       = module.s3.raw_bucket_arn
   processed_bucket_arn = module.s3.processed_bucket_arn
   jobs_table_arn       = module.dynamodb.jobs_table_arn
+  emr_job_role_arn     = module.emr_serverless.job_role_arn
+}
+
+module "emr_serverless" {
+  source               = "../../modules/emr_serverless"
+  project_name         = var.project_name
+  environment          = var.environment
+  tags                 = local.tags
+  raw_bucket_arn       = module.s3.raw_bucket_arn
+  processed_bucket_arn = module.s3.processed_bucket_arn
 }
 
 module "ecr" {

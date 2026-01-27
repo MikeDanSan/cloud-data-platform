@@ -38,9 +38,8 @@ app:
   dynamodb:
     jobsTable: ${JOBS_TABLE:cloud-data-platform-dev-jobs}
   emr:
-    applicationId: ${EMR_APPLICATION_ID}
-    jobRoleArn: ${EMR_JOB_ROLE_ARN}
-    sparkJarPath: ${SPARK_JAR_PATH:s3://cloud-data-platform-dev-raw/jars/cloud-data-platform-spark-jobs-0.1.0.jar}
+    applicationId: ${EMR_APPLICATION_ID:}
+    jobRoleArn: ${EMR_JOB_ROLE_ARN:}
 
 logging:
   level:

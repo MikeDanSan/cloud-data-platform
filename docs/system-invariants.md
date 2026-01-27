@@ -135,3 +135,22 @@ Prefer:
 - Explicit over implicit
 - Boring technology over trendy abstractions
 - Working systems over perfect designs
+
+### Configuration & Environment Variables
+
+The backend service requires the following environment variables in production:
+
+**AWS & Storage:**
+- `AWS_REGION`: AWS region (default: `us-east-1`)
+- `RAW_BUCKET`: S3 bucket for raw input data (default: `cloud-data-platform-dev-raw`)
+- `PROCESSED_BUCKET`: S3 bucket for processed output (default: `cloud-data-platform-dev-processed`)
+- `JOBS_TABLE`: DynamoDB table for job metadata (default: `cloud-data-platform-dev-jobs`)
+
+**EMR Serverless:**
+- `EMR_APPLICATION_ID`: EMR Serverless application ID (required in production, empty default for local/CI)
+- `EMR_JOB_ROLE_ARN`: IAM role ARN for EMR job execution (required in production, empty default for local/CI)
+- `SPARK_JAR_PATH`: S3 path to Spark job JAR (default: `s3://cloud-data-platform-dev-raw/jars/cloud-data-platform-spark-jobs-0.1.0.jar`)
+
+**Local Development & CI:**
+All variables have safe defaults in `application.yml` to allow `./gradlew clean build` and test execution without AWS credentials.
+In ECS/production, these are injected via task environment variables.

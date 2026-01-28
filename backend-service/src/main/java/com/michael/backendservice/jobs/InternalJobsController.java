@@ -98,10 +98,14 @@ public class InternalJobsController {
                 String outputPath = "s3://" + processedBucket + "/processed/jobs/" + jobId + "/output/";
 
                 String emrJobRunId = emrService.startSparkJob(jobId, inputPath, outputPath);
-                repo.setEmrJobRunId(jobId, emrJobRunId);
-
-                // Fetch updated job with EMR ID
-                updated = repo.getJob(jobId).orElse(updated);
+                if (emrJobRunId != null && !emrJobRunId.isBlank()) {
+                    repo.setEmrJobRunId(jobId, emrJobRunId);
+                    // Fetch updated job with EMR ID
+                    updated = repo.getJob(jobId).orElse(updated);
+                } else {
+                    // EMR disabled or not configured; leave job RUNNING without emrJobRunId
+                    System.err.println("EMR disabled or not configured; jobRunId not set for jobId=" + jobId);
+                }
             } catch (Exception e) {
                 // Log error but don't fail the status update
                 System.err.println("Failed to start EMR job: " + e.getMessage());

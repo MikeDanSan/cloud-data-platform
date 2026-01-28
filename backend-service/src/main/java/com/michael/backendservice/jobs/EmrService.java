@@ -31,34 +31,38 @@ public class EmrService {
         this.sparkJarPath = sparkJarPath;
     }
 
+    private boolean isConfigured() {
+        return applicationId != null && !applicationId.isBlank()
+                && jobRoleArn != null && !jobRoleArn.isBlank()
+                && sparkJarPath != null && !sparkJarPath.isBlank();
+    }
+
     public String startSparkJob(String jobId, String inputS3Path, String outputS3Path) {
+        if (!isConfigured()) {
+            log.warn("EMR not configured; skipping Spark submission for jobId={}", jobId);
+            return null;
+        }
+
         log.info("Starting Spark job for jobId={}, input={}, output={}", jobId, inputS3Path, outputS3Path);
 
         StartJobRunRequest request = StartJobRunRequest.builder()
                 .applicationId(applicationId)
                 .executionRoleArn(jobRoleArn)
-                .name("job-" + jobId)
                 .jobDriver(JobDriver.builder()
                         .sparkSubmit(SparkSubmit.builder()
                                 .entryPoint(sparkJarPath)
                                 .entryPointArguments(inputS3Path, outputS3Path)
-                                .sparkSubmitParameters(
-                                        "--class com.michael.spark.SimpleTransformJob " +
-                                        "--conf spark.executor.cores=4 " +
-                                        "--conf spark.executor.memory=8g " +
-                                        "--conf spark.driver.cores=2 " +
-                                        "--conf spark.driver.memory=4g"
-                                )
+                                .sparkSubmitParameters("--class com.michael.spark.SimpleTransformJob")
                                 .build())
                         .build())
                 .configurationOverrides(ConfigurationOverrides.builder()
                         .monitoringConfiguration(MonitoringConfiguration.builder()
-                                .cloudWatchLoggingConfiguration(CloudWatchLoggingConfiguration.builder()
-                                        .enabled(true)
-                                        .logGroupName("/aws/emr-serverless/jobs")
+                                .s3MonitoringConfiguration(S3MonitoringConfiguration.builder()
+                                        .logUri("s3://cloud-data-platform-dev-raw/emr-logs/")
                                         .build())
                                 .build())
                         .build())
+                .name("job-" + jobId)
                 .tags(Map.of("JobId", jobId))
                 .build();
 

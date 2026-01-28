@@ -108,6 +108,23 @@ aws s3 cp target/scala-2.12/cloud-data-platform-spark-jobs-0.1.0.jar \
 aws s3 ls s3://cloud-data-platform-dev-raw/jars/
 ```
 
+#### Upload test CSV:
+
+```bash
+# Create test.csv locally
+cat > test.csv << EOF
+id,name,value
+1,alice,100
+2,bob,200
+3,charlie,300
+EOF
+
+# Upload to presigned URL
+curl -X PUT --data-binary @test.csv \
+  -H "Content-Type: text/csv" \
+  "<presigned-url-from-previous-step>"
+```
+
 #### Notes
 
 - The service is intentionally stateless.

@@ -100,6 +100,8 @@ pong
 
 - EMR, S3, and DynamoDB integration will be added in later milestones.
 
+- Insomnia URL import for OpenAPI document: `http://localhost:8080/v3/api-docs`
+
 ## Success criteria (MVP)
 
 - Submit a job end-to-end and see it complete successfully

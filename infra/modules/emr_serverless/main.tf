@@ -74,6 +74,18 @@ data "aws_iam_policy_document" "emr_job_policy" {
     ]
   }
 
+  # Write EMR logs to raw bucket
+  statement {
+    effect = "Allow"
+    actions = [
+      "s3:PutObject",
+      "s3:GetObject"
+    ]
+    resources = [
+      "${var.raw_bucket_arn}/emr-logs/*"
+    ]
+  }
+
   # CloudWatch Logs
   statement {
     effect = "Allow"
@@ -85,7 +97,7 @@ data "aws_iam_policy_document" "emr_job_policy" {
     resources = ["*"]
   }
 
-  # Glue Data Catalog (optional, for partitioned data)
+  # Glue Data Catalog (optional)
   statement {
     effect = "Allow"
     actions = [

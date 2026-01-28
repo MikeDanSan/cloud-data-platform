@@ -72,4 +72,27 @@ public class EmrService {
         log.info("Started EMR job run: jobRunId={} for jobId={}", jobRunId, jobId);
         return jobRunId;
     }
+
+    public JobRunState getJobRunState(String jobRunId) {
+        if (!isConfigured()) {
+            log.warn("EMR not configured; cannot poll jobRunId={}", jobRunId);
+            return null;
+        }
+
+        try {
+            GetJobRunRequest request = GetJobRunRequest.builder()
+                    .applicationId(applicationId)
+                    .jobRunId(jobRunId)
+                    .build();
+
+            GetJobRunResponse response = emrClient.getJobRun(request);
+            JobRun jobRun = response.jobRun();
+
+            log.debug("EMR jobRunId={} state={}", jobRunId, jobRun.state());
+            return jobRun.state();
+        } catch (Exception e) {
+            log.error("Failed to get EMR job run state for jobRunId={}: {}", jobRunId, e.getMessage());
+            return null;
+        }
+    }
 }

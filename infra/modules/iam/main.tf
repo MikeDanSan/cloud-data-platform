@@ -72,6 +72,7 @@ data "aws_iam_policy_document" "task_policy" {
     effect = "Allow"
     actions = [
       "emr-serverless:StartJobRun",
+      "emr-serverless:TagResource",
       "emr-serverless:GetJobRun",
       "emr-serverless:CancelJobRun",
       "emr-serverless:ListJobRuns"

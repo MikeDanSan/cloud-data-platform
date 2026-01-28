@@ -10,6 +10,7 @@ resource "aws_s3_bucket" "raw" {
 
 resource "aws_s3_bucket" "processed" {
   bucket = "${local.prefix}-processed"
+  force_destroy = var.force_destroy
   tags   = var.tags
 }
 

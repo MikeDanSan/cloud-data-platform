@@ -10,6 +10,8 @@ import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
 import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemResponse;
+import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
+import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -158,6 +160,24 @@ public class JobsRepository {
         }
 
         return new JobsPage(items, nextKey);
+    }
+
+    public List<Job> getJobsByStatus(JobStatus status) {
+        ScanRequest request = ScanRequest.builder()
+                .tableName(jobsTable)
+                .filterExpression("#status = :status")
+                .expressionAttributeNames(Map.of("#status", "status"))
+                .expressionAttributeValues(Map.of(":status", AttributeValue.fromS(status.name())))
+                .build();
+
+        ScanResponse response = ddb.scan(request);
+
+        List<Job> jobs = new ArrayList<>();
+        for (Map<String, AttributeValue> item : response.items()) {
+            jobs.add(mapToJob(item));
+        }
+
+        return jobs;
     }
 
     private Job mapToJob(Map<String, AttributeValue> item) {

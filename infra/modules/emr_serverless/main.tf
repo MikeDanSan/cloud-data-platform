@@ -26,6 +26,21 @@ resource "aws_emrserverless_application" "spark" {
   tags = var.tags
 }
 
+# Force stop before destroy
+resource "null_resource" "stop_emr_app" {
+  triggers = {
+    app_id = aws_emrserverless_application.spark.id
+  }
+
+  provisioner "local-exec" {
+    when    = destroy
+    command = <<-EOT
+      aws emr-serverless stop-application --application-id ${self.triggers.app_id} || true
+      sleep 10
+    EOT
+  }
+}
+
 # IAM role for EMR Serverless job execution
 data "aws_iam_policy_document" "emr_assume_role" {
   statement {

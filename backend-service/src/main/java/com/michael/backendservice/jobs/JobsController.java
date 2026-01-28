@@ -17,6 +17,7 @@ import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignReques
 
 import java.time.Duration;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -27,6 +28,7 @@ public class JobsController {
 
     private final JobsRepository repo;
     private final S3Presigner presigner;
+    private final S3OutputLister outputLister;
     private final String rawBucket;
     private final String processedBucket;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -34,11 +36,13 @@ public class JobsController {
     public JobsController(
             JobsRepository repo,
             S3Presigner presigner,
+            S3OutputLister outputLister,
             @Value("${app.s3.rawBucket}") String rawBucket,
             @Value("${app.s3.processedBucket}") String processedBucket
     ) {
         this.repo = repo;
         this.presigner = presigner;
+        this.outputLister = outputLister;
         this.rawBucket = rawBucket;
         this.processedBucket = processedBucket;
     }
@@ -202,4 +206,48 @@ public class JobsController {
                 expires
         ));
     }
+
+    @Operation(
+            summary = "List job output files",
+            description = "Lists all output files from a completed job with presigned download URLs. Only available for SUCCEEDED jobs."
+    )
+    @GetMapping("/{jobId}/outputs")
+    public ResponseEntity<?> listOutputFiles(@PathVariable String jobId) {
+        Job job = repo.getJob(jobId).orElse(null);
+
+        if (job == null) {
+            return ResponseEntity.status(404).body(Map.of(
+                    "error", "Job not found",
+                    "jobId", jobId
+            ));
+        }
+
+        if (!JobStatus.SUCCEEDED.name().equals(job.status())) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Job must be in SUCCEEDED status to view outputs",
+                    "currentStatus", job.status()
+            ));
+        }
+
+        if (job.outputS3Key() == null || job.outputS3Key().isBlank()) {
+            return ResponseEntity.status(404).body(Map.of(
+                    "error", "No output available for this job",
+                    "jobId", jobId
+            ));
+        }
+
+        List<OutputFile> files = outputLister.listOutputFiles(processedBucket, job.outputS3Key());
+
+        long totalSize = files.stream().mapToLong(OutputFile::fileSizeBytes).sum();
+
+        return ResponseEntity.ok(new OutputFilesResponse(
+                jobId,
+                job.status(),
+                job.outputS3Key(),
+                files,
+                files.size(),
+                totalSize
+        ));
+    }
+
 }

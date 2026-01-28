@@ -92,6 +92,22 @@ curl http://localhost:8080/ping
 pong
 ```
 
+#### Build & Upload Spark Job JAR
+
+```bash
+cd ./spark-jobs
+
+# Build fat JAR
+sbt assembly
+
+# Upload to S3
+aws s3 cp target/scala-2.12/cloud-data-platform-spark-jobs-0.1.0.jar \
+  s3://cloud-data-platform-dev-raw/jars/
+
+# Verify upload
+aws s3 ls s3://cloud-data-platform-dev-raw/jars/
+```
+
 #### Notes
 
 - The service is intentionally stateless.

@@ -7,9 +7,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 import java.time.Duration;
@@ -25,16 +28,19 @@ public class JobsController {
     private final JobsRepository repo;
     private final S3Presigner presigner;
     private final String rawBucket;
+    private final String processedBucket;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public JobsController(
             JobsRepository repo,
             S3Presigner presigner,
-            @Value("${app.s3.rawBucket}") String rawBucket
+            @Value("${app.s3.rawBucket}") String rawBucket,
+            @Value("${app.s3.processedBucket}") String processedBucket
     ) {
         this.repo = repo;
         this.presigner = presigner;
         this.rawBucket = rawBucket;
+        this.processedBucket = processedBucket;
     }
 
     @Operation(
@@ -61,7 +67,6 @@ public class JobsController {
 
         JobsPage page = repo.listJobs(limit, lastEvaluatedKey);
 
-        // Encode lastEvaluatedKey as base64 JSON for clean URLs
         String nextKey = null;
         if (page.lastEvaluatedKey() != null) {
             try {
@@ -139,6 +144,60 @@ public class JobsController {
                 jobId,
                 rawBucket,
                 s3Key,
+                presigned.url().toString(),
+                expires
+        ));
+    }
+
+    @Operation(
+            summary = "Generate download URL",
+            description = "Generates a presigned S3 GET URL for downloading processed job results. Only available for SUCCEEDED jobs."
+    )
+    @PostMapping("/{jobId}/download-url")
+    public ResponseEntity<?> createDownloadUrl(@PathVariable String jobId) {
+        Job job = repo.getJob(jobId).orElse(null);
+
+        if (job == null) {
+            return ResponseEntity.status(404).body(Map.of(
+                    "error", "Job not found",
+                    "jobId", jobId
+            ));
+        }
+
+        if (!JobStatus.SUCCEEDED.name().equals(job.status())) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Job must be in SUCCEEDED status to download results",
+                    "currentStatus", job.status()
+            ));
+        }
+
+        if (job.outputS3Key() == null || job.outputS3Key().isBlank()) {
+            return ResponseEntity.status(404).body(Map.of(
+                    "error", "No output available for this job",
+                    "jobId", jobId
+            ));
+        }
+
+        // For directory-based output (Parquet partitions), return URL to _SUCCESS marker
+        String downloadKey = job.outputS3Key() + "_SUCCESS";
+        int expires = 300;
+
+        GetObjectRequest objectRequest = GetObjectRequest.builder()
+                .bucket(processedBucket)
+                .key(downloadKey)
+                .build();
+
+        GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+                .signatureDuration(Duration.ofSeconds(expires))
+                .getObjectRequest(objectRequest)
+                .build();
+
+        PresignedGetObjectRequest presigned = presigner.presignGetObject(presignRequest);
+
+        return ResponseEntity.ok(new DownloadUrlResponse(
+                jobId,
+                processedBucket,
+                downloadKey,
                 presigned.url().toString(),
                 expires
         ));

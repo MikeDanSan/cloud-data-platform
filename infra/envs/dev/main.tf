@@ -116,3 +116,14 @@ module "budget" {
   alert_email        = var.alert_email
   monthly_budget_usd = var.monthly_budget_usd
 }
+
+module "cloudwatch_alarms" {
+  source = "../../modules/cloudwatch_alarms"
+
+  project_name            = var.project_name
+  environment             = var.environment
+  tags                    = local.tags
+  alb_arn_suffix          = module.ecs_backend.alb_arn_suffix
+  target_group_arn_suffix = module.ecs_backend.target_group_arn_suffix
+  dynamodb_table_name     = module.dynamodb.jobs_table_name
+}

@@ -22,7 +22,6 @@ output "backend_execution_role_arn" {
   value = module.iam.execution_role_arn
 }
 
-
 output "ecr_repository_url" {
   value = module.ecr.repository_url
 }
@@ -49,4 +48,16 @@ output "emr_application_id" {
 
 output "emr_job_role_arn" {
   value = module.emr_serverless.job_role_arn
+}
+
+output "ecs_log_group_name" {
+  value = module.cloudwatch_alarms.ecs_log_group_name
+}
+
+output "emr_log_group_name" {
+  value = module.cloudwatch_alarms.emr_log_group_name
+}
+
+output "alarm_names" {
+  value = module.cloudwatch_alarms.alarm_names
 }

@@ -159,3 +159,143 @@ In ECS/production, these are injected via task environment variables.
 
 All EMR and Spark configuration defaults enable local builds and CI test execution without AWS credentials.
 Production deployments override these via ECS task environment variables.
+
+---
+
+## Observability Stack (M7)
+
+The system implements three pillars of observability to enable production operations: request tracing, structured logging, and metrics with alarms.
+
+### 1. Request Tracing via Correlation IDs
+
+Every incoming request is assigned a unique correlation ID to track execution across all services and logs.
+
+**Implementation:**
+- `CorrelationIdFilter`: Servlet filter that extracts `X-Correlation-ID` header or generates a UUID.
+- Correlation ID is stored in SLF4J's MDC (Mapped Diagnostic Context) for the request lifecycle.
+- All log lines automatically include `[%X{correlationId}]` pattern.
+- Filter cleans up MDC after request to prevent cross-request contamination.
+
+**Usage:**
+```bash
+# In your API client, pass the header or let the service generate one:
+curl -X GET http://api.cloudpipes.net/jobs \
+  -H "X-Correlation-ID: 12345-abcde-67890"
+
+# All logs for this request will include [12345-abcde-67890] in output
+```
+
+
+Debugging: When investigating a user issue, ask for their request's correlation ID and grep CloudWatch logs:
+
+```bash
+aws logs filter-log-events \
+  --log-group-name /ecs/cloud-data-platform-dev-backend-service \
+  --filter-pattern "[%X{correlationId} = 12345-abcde-67890]"
+```
+
+### Structured Logging
+
+Logs are emitted in JSON format to CloudWatch for queryability and aggregation.
+
+Configuration:
+
+- application.yml: SLF4J configured with JSON encoder via logback-spring.xml
+- Log levels: DEBUG in dev, INFO in production
+- Retention: 7 days in CloudWatch (configurable per environment)
+- Log groups:
+   - /ecs/cloud-data-platform-dev-backend-service: Java application logs
+   - /aws/emr-serverless/jobs: EMR Spark job logs (includes driver + executor output)
+
+Key Fields in Logs:
+
+- timestamp: ISO-8601 timestamp
+- level: TRACE, DEBUG, INFO, WARN, ERROR
+- logger: Full class name (e.g., com.michael.backendservice.jobs.JobsController)
+- message: Event description
+- correlationId: Request trace ID
+- jobId: Job identifier (when applicable)
+- stacktrace: Exception details (for ERROR and WARN levels)
+
+Structured Example:
+
+```json
+{
+  "timestamp": "2026-01-29T14:23:45.123Z",
+  "level": "INFO",
+  "logger": "com.michael.backendservice.jobs.JobStatusPoller",
+  "message": "Job transitioned to SUCCEEDED",
+  "correlationId": "req-abc123",
+  "jobId": "job-xyz789",
+  "processingTimeMs": 1230
+}
+```
+
+### Custom Metrics & Alarms
+
+The system exports custom metrics to CloudWatch for visibility into API behavior, data pipeline health, and infrastructure state.
+
+#### Metrics (via Micrometer + CloudWatch Registry):
+
+
+| Metric | Type | Dimension | Use Case |
+|--------|------|-----------|----------|
+| `jobs.created` | Counter | (none) | Total jobs submitted via API |
+| `jobs.completed` | Counter | (none) | Jobs that reached SUCCEEDED or FAILED state |
+| `jobs.failed` | Counter | (none) | Jobs that reached FAILED state |
+| `emr.job.started` | Counter | (none) | EMR Spark jobs submitted |
+| `emr.job.failed` | Counter | (none) | EMR Spark jobs that failed |
+| `job.processing.time` | Timer | (none) | Duration from RUNNING → SUCCEEDED/FAILED |
+
+**CloudWatch Alarms:**
+
+| Alarm | Metric | Threshold | Action |
+|-------|--------|-----------|--------|
+| `cloud-data-platform-dev-api-5xx-errors` | `HTTPCode_Target_5XX_Count` | ≥ 5 in 5 minutes | SNS notification (if configured) |
+| `cloud-data-platform-dev-dynamodb-throttle` | `UserErrors` (DynamoDB) | ≥ 1 in 60 seconds | SNS notification |
+
+#### Viewing Metrics:
+
+```bash
+# List all alarms
+aws cloudwatch describe-alarms \
+  --alarm-names cloud-data-platform-dev-api-5xx-errors
+
+# Get metric statistics
+aws cloudwatch get-metric-statistics \
+  --namespace CloudWatch \
+  --metric-name jobs.created \
+  --start-time 2026-01-28T00:00:00Z \
+  --end-time 2026-01-29T23:59:59Z \
+  --period 3600 \
+  --statistics Sum
+```
+
+#### Interpreting Alarms:
+
+1. 5xx Alarm fires: Check application logs for errors, verify EMR job status, review recent code deployments.
+
+2. DynamoDB Throttle Alarm fires: Check provisioned capacity, review write spike patterns, consider enabling autoscaling (M9.x).
+Observability Workflow
+
+**For a stuck job (RUNNING for > 2 hours):**
+
+1. Get the job's correlation ID from DynamoDB or API response
+2. Query EMR: aws emr-serverless get-job-run --application-id <id> --job-run-id <emr-id>
+3. Check EMR logs: aws logs tail /aws/emr-serverless/jobs --follow
+4. Grep application logs: aws logs filter-log-events --filter-pattern "[correlationId]"
+5. 5Review metrics: jobs.completed counter should increment if job finishes
+
+**For elevated error rates:**
+
+1. Check alarm: aws cloudwatch describe-alarms --state-reason for recent transitions
+2. Correlate with deployments: Check Git logs for recent changes
+3. Review slow queries: Check DynamoDB metrics for throttling or high latency
+5. Monitor EMR: Verify EMR application is in STARTED state
+
+**Future Enhancements (Not in M7)**
+- Distributed Tracing: Add OpenTelemetry/Jaeger for cross-service span propagation (if multi-service architecture emerges)
+- Log Aggregation Dashboard: Grafana dashboard pulling CloudWatch metrics and logs
+- Alert Escalation: PagerDuty integration for on-call routing
+- SLI/SLO Tracking: Define and monitor error budget for job completion rate
+- Anomaly Detection: ML-based CloudWatch Anomaly Detector for unexpected metric deviations

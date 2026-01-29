@@ -16,7 +16,13 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,metrics
+  metrics:
+    export:
+      cloudwatch:
+        enabled: ${CLOUDWATCH_METRICS_ENABLED:true}
+        namespace: CloudDataPlatform
+        step: 1m
 
 springdoc:
   api-docs:
@@ -46,7 +52,8 @@ logging:
   level:
     root: INFO
     org.springframework.web: INFO
-    software.amazon.awssdk: DEBUG
-    com.michael.backendservice: DEBUG
+    software.amazon.awssdk: WARN
+    com.michael.backendservice: INFO
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} %-5level [%thread] %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss} %-5level [%thread] %logger{36} [%X{correlationId}] - %msg%n"
+    

@@ -1,5 +1,6 @@
 package com.michael.backendservice.jobs;
 
+import com.michael.backendservice.observability.MetricsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,17 +16,20 @@ public class EmrService {
     private static final Logger log = LoggerFactory.getLogger(EmrService.class);
 
     private final EmrServerlessClient emrClient;
+    private final MetricsService metricsService;
     private final String applicationId;
     private final String jobRoleArn;
     private final String sparkJarPath;
 
     public EmrService(
             EmrServerlessClient emrClient,
+            MetricsService metricsService,
             @Value("${app.emr.applicationId}") String applicationId,
             @Value("${app.emr.jobRoleArn}") String jobRoleArn,
             @Value("${app.emr.sparkJarPath}") String sparkJarPath
     ) {
         this.emrClient = emrClient;
+        this.metricsService = metricsService;
         this.applicationId = applicationId;
         this.jobRoleArn = jobRoleArn;
         this.sparkJarPath = sparkJarPath;
@@ -69,6 +73,7 @@ public class EmrService {
         StartJobRunResponse response = emrClient.startJobRun(request);
         String jobRunId = response.jobRunId();
 
+        metricsService.incrementEmrJobsStarted();
         log.info("Started EMR job run: jobRunId={} for jobId={}", jobRunId, jobId);
         return jobRunId;
     }

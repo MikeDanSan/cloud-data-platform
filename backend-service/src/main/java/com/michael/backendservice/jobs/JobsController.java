@@ -2,6 +2,8 @@ package com.michael.backendservice.jobs;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.michael.backendservice.observability.MetricsService;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,17 +34,20 @@ public class JobsController {
     private final String rawBucket;
     private final String processedBucket;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final MetricsService metricsService;
 
     public JobsController(
-            JobsRepository repo,
-            S3Presigner presigner,
-            S3OutputLister outputLister,
-            @Value("${app.s3.rawBucket}") String rawBucket,
-            @Value("${app.s3.processedBucket}") String processedBucket
+        JobsRepository repo,
+        S3Presigner presigner,
+        S3OutputLister outputLister,
+        MetricsService metricsService,
+        @Value("${app.s3.rawBucket}") String rawBucket,
+        @Value("${app.s3.processedBucket}") String processedBucket
     ) {
         this.repo = repo;
         this.presigner = presigner;
         this.outputLister = outputLister;
+        this.metricsService = metricsService;
         this.rawBucket = rawBucket;
         this.processedBucket = processedBucket;
     }
@@ -96,6 +101,7 @@ public class JobsController {
         String jobId = UUID.randomUUID().toString();
         String inputS3Key = (request == null) ? null : request.inputS3Key();
         Job created = repo.createJob(jobId, inputS3Key);
+        metricsService.incrementJobsCreated();
         return ResponseEntity.ok(created);
     }
 

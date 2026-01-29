@@ -10,7 +10,7 @@ module "s3" {
   source                 = "../../modules/s3"
   project_name           = var.project_name
   environment            = var.environment
-  force_destroy = true
+  force_destroy          = true
   raw_expire_days        = 14
   processed_expire_days  = 30
   noncurrent_expire_days = 7
